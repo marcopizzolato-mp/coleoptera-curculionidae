@@ -1,0 +1,179 @@
+---
+title: "Punteruolo Nero data analysis"
+author: "Marco Pizzolato"
+date: "June 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(tidyverse)
+library(readxl)
+library(sf)
+library(leaflet)
+library(viridis)
+```
+
+Read in the data from the excel
+
+```{r read_data}
+
+setwd("~/R_punteruolo_nero")
+
+raw_data = readxl::read_excel(path= paste0(getwd(),'/data/Plagued.xlsx'), 
+                   sheet = 'data', 
+                   col_names = TRUE) %>%
+                    filter(!is.na(latitude) | !is.na(longitude))
+
+
+# Transform the data set in a simple feature object with a geometry column
+projcrs <- "+proj=longlat +datum=WGS84 +no_defs +ellps=WGS84 +towgs84=0,0,0"
+
+spatial_dataset <- st_as_sf(x = raw_data,                         
+           coords = c("longitude", "latitude"),
+           crs = projcrs)
+
+```
+
+
+Visualise the data over a map 
+
+```{r simplefeature, echo=FALSE}
+
+
+# Background 2: World Imagery
+m <- leaflet(data = spatial_dataset) %>% addTiles() %>% 
+       addMarkers(popup = ~as.character(taxonomy), label = ~as.character(index)) %>% 
+       addTiles() %>% 
+       setView( lng = 10.099, lat = 44.081, zoom = 10 ) %>% 
+       addProviderTiles("Esri.WorldImagery")
+m
+
+
+```
+
+
+Visualise the data over a map with the groupng function
+
+```{r simplefeature, echo=FALSE}
+
+
+# Background 2: World Imagery
+m <- leaflet(data = spatial_dataset) %>% addTiles() %>% 
+       addMarkers(clusterOptions = markerClusterOptions()) %>% 
+       addTiles() %>% 
+       setView( lng = 10.099, lat = 44.081, zoom = 10 ) %>% 
+       addProviderTiles("Esri.WorldImagery")
+m
+
+
+```
+
+
+Cluster the ponts according to the mutual distance
+
+```{r simplefeature, echo=FALSE}
+
+library(geosphere)
+
+# define the distance threshold - it is in meters (es: 2000 mean 200 m or 2 kilometers)
+d=2000
+
+
+# Calculate a distance matrix between the points
+point_matrix = raw_data %>% select(longitude, latitude) %>% apply(., 2, as.numeric) %>% as.matrix()
+
+# use the distm function to generate a geodesic distance matrix in meters
+distance_matrix <- geosphere::distm(point_matrix)
+
+# cluster all points using a hierarchical clustering approach
+h_clust <- stats::hclust(as.dist(distance_matrix), method="complete")
+
+
+
+# define clusters based on a tree "height" cutoff "d" and add them to the SpDataFrame
+spatial_dataset$clust <- stats::cutree(h_clust, h=d)
+
+unique(spatial_dataset$clust)
+# https://gis.stackexchange.com/questions/17638/clustering-spatial-data-in-r
+
+```
+
+
+Display the clusters on a map
+
+```{r cluster_on_map, echo=FALSE}
+
+
+# Do not need to cut into bins since we already have the clusters
+# # first cut the continuous variable into bins
+# # these bins are now factors
+# last$BeatHomeLvl <- cut(last$BeatHome, 
+#                         c(0,.5,1,2,3,5,100), include.lowest = T,
+#                         labels = c('<.5x', '.5-1x', '1-2x', '2-3x', '3-5x','5x+'))
+
+
+# Assign a palette to each cluster using colorFactor
+clust_colors <- colorFactor(palette = 'magma', raw_data$clust)
+
+
+# # Background 2: World Imagery
+m <- leaflet(data = spatial_dataset) %>% addTiles() %>%
+      addCircleMarkers(data = spatial_dataset,
+                        color = ~clust_colors(clust), 
+                        popup = ~paste0('Taxa: ',as.character(taxonomy)),
+                        label = ~paste0('Cluster: ',as.character(clust))) %>%
+                        addLegend('bottomright', pal = clust_colors, values = spatial_dataset$clust,
+                        title = paste0('Clusters of fig trees <br>that are ',d,' m apart'),
+                        opacity = 1) %>%
+                       addTiles() %>%
+                       setView( lng = 10.099, lat = 44.081, zoom = 10 ) %>%
+                       addProviderTiles("Esri.WorldImagery")
+m
+
+
+
+# https://stackoverflow.com/questions/32940617/change-color-of-leaflet-marker
+
+
+```
+
+
+
+
+
+```{r simplefeature, echo=FALSE}
+
+
+
+
+```
+
+
+
+
+```{r simplefeature, echo=FALSE}
+
+
+
+
+```
+
+
+
+```{r simplefeature, echo=FALSE}
+
+
+
+
+```
+
+
+
+```{r simplefeature, echo=FALSE}
+
+
+
+
+```
+
